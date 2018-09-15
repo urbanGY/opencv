@@ -25,15 +25,20 @@ int main(int argc, char* argv[]) {
 	/*자르기*/
 	int left = 0, right = 0, top = 0, bottom = 0;
 	int read = -1;	
-		
+	bool flag = false;
 	for (int i = 0; i < row; i++) {
 		for (int j = 0; j < col; j++) {
 			read = black.at<uchar>(i, j);
 			if (read == 0) {
 				top = i;
 				read = -1;
+				flag = true;
 				break;
 			}
+		}
+		if (flag) {
+			flag = false;
+			break;
 		}
 	}
 	for (int i = row-1; i >= 0; i--) {
@@ -42,8 +47,13 @@ int main(int argc, char* argv[]) {
 			if (read == 0) {
 				bottom = i;
 				read = -1;
+				flag = true;
 				break;
 			}
+		}
+		if (flag) {
+			flag = false;
+			break;
 		}
 	}
 	for (int i = 0; i < col; i++) {
@@ -52,8 +62,13 @@ int main(int argc, char* argv[]) {
 			if (read == 0) {
 				left = i;
 				read = -1;
+				flag = true;
 				break;
 			}
+		}
+		if (flag) {
+			flag = false;
+			break;
 		}
 	}
 	for (int i = col-1; i >= 0; i--) {
@@ -62,13 +77,35 @@ int main(int argc, char* argv[]) {
 			if (read == 0) {
 				right = i;
 				read = -1;
+				flag = true;
 				break;
 			}
 		}
+		if (flag) {
+			flag = false;
+			break;
+		}
 	}
+	
 	cout << "left" << left << "right" << right << endl;
 	cout << "top" << top << "bottom" << bottom << endl;
-	cv::Mat capture = image(cv::Range(bottom, top),cv::Range(right, left));
+	cv::Mat capture = image(cv::Range(top, bottom),cv::Range(left, right));
+	/*배경색 걷어내기*/
+	cv::Mat capture_black = black(cv::Range(top, bottom), cv::Range(left, right));
+
+	int cap_row = capture.rows;
+	int cap_col = capture.cols;
+	for (int i = 0; i < cap_row; i++) {
+		for (int j = 0; j < cap_col; j++) {
+			read = capture_black.at<uchar>(i, j);
+			if (read == 255) {
+				capture.at<cv::Vec3b>(i, j)[0] = 255;
+				capture.at<cv::Vec3b>(i, j)[1] = 255;
+				capture.at<cv::Vec3b>(i, j)[2] = 255;
+			}
+		}
+	}
+	/*배경색 걷어내기*/
 	//int width[624] = { 0 };
 	//float width_f[624] = { 0,0 };
 	//int red = 0;
@@ -152,6 +189,7 @@ int main(int argc, char* argv[]) {
 	//cout << start << endl;
 	//cout << end << endl;
 	cv::imshow("draw capture", capture);
+	cv::imshow("draw capture_black", capture_black);
 	/*for (int i = 0; i < row; i++) {
 		image.at<cv::Vec3b>(i, left)[0] = 255;
 		image.at<cv::Vec3b>(i, right)[0] = 255;
@@ -169,6 +207,8 @@ int main(int argc, char* argv[]) {
 		image.at<cv::Vec3b>(bottom, i)[2] = 255;
 	}*/
 	cv::imshow("draw black", black);
+	image = cv::imread("C:/Users/sfsfk/Desktop/js.png", cv::IMREAD_COLOR);
+	//image = cv::imread("C:/Users/sfsfk/Desktop/test.jpg", cv::IMREAD_COLOR);
 	cv::imshow("draw line", image);	
 	cv::waitKey(0);
 	return 0;
