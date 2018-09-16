@@ -13,17 +13,23 @@ void diff(int * width, int col) {
 	width[col - 1] = 0;
 }
 
-int main(int argc, char* argv[]) {
-	//cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/test.jpg", cv::IMREAD_COLOR);
-	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/js.png", cv::IMREAD_COLOR);
+int main(int argc, char* argv[]) {	
+	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/case10.jpg", cv::IMREAD_COLOR);
+	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//마스킹
+	//cv::dilate(image, image, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 2);//팽창연산
+	//cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/js.png", cv::IMREAD_COLOR);
 	int row = image.rows;//470 세로 427
 	int col = image.cols;//624 가로 398
 	/*흑백 전환*/
 	cv::Mat black;
 	cv::cvtColor(image, black, CV_BGR2YCrCb);
-	cv::inRange(black, cv::Scalar(0, 135, 80), cv::Scalar(255, 171, 124), black);
-	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));
-	cv::dilate(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 2);//팽창연산
+	/*default 0, 135, 80   255, 171, 124*/
+	/* test1 ->  0, 110, 80 앞의 값을 내릴 수 록 더 많은 영역이 하얀색에 포함된다(이 범위 안으로 들어온다) / 255, 171, 128(값을 올릴 수 록 하얀색이 넓어짐
+	팽창 연산(노이즈 캔슬링) 3회 진행
+	식별 실패 : case3(엷은 갈색이 넓게 분포), case4, case5(코와 더불어 코털 등이 식별에 방해됨, 점이 너무 작아서 노이즈 캔슬링에 치명적), case7,
+	*/
+	cv::inRange(black, cv::Scalar(0, 110, 80), cv::Scalar(255, 171, 128), black);	
+	cv::dilate(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 3);//팽창연산
 	/*자르기*/
 	int left = 0, right = 0, top = 0, bottom = 0;
 	int read = -1;	
@@ -91,7 +97,10 @@ int main(int argc, char* argv[]) {
 	
 	cout << "left" << left << "right" << right << endl;
 	cout << "top" << top << "bottom" << bottom << endl;
-	cv::Mat capture = image(cv::Range(top, bottom),cv::Range(left, right));
+	cv::Mat capture = image;
+	if (!(left == 0 || right == 0 || top == 0 || bottom == 0))
+		capture = image(cv::Range(top, bottom), cv::Range(left, right));
+		
 	/*배경색 걷어내기*/
 	/*cv::Mat capture_black = black(cv::Range(top, bottom), cv::Range(left, right));
 
@@ -208,9 +217,9 @@ int main(int argc, char* argv[]) {
 		image.at<cv::Vec3b>(top, i)[2] = 255;
 		image.at<cv::Vec3b>(bottom, i)[2] = 255;
 	}*/
-	 cv::imshow("draw capture", capture);
-	cv::imshow("draw black", black);
-	cv::imshow("draw line", image);	
+	 cv::imshow("slice image", capture);
+	cv::imshow("cvt ycrcb", black);
+	cv::imshow("original image", image);	
 	cv::waitKey(0);
 	return 0;
 }
