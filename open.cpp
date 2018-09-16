@@ -22,6 +22,8 @@ int main(int argc, char* argv[]) {
 	cv::Mat black;
 	cv::cvtColor(image, black, CV_BGR2YCrCb);
 	cv::inRange(black, cv::Scalar(0, 135, 80), cv::Scalar(255, 171, 124), black);
+	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));
+	cv::dilate(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 2);//팽창연산
 	/*자르기*/
 	int left = 0, right = 0, top = 0, bottom = 0;
 	int read = -1;	
@@ -91,7 +93,7 @@ int main(int argc, char* argv[]) {
 	cout << "top" << top << "bottom" << bottom << endl;
 	cv::Mat capture = image(cv::Range(top, bottom),cv::Range(left, right));
 	/*배경색 걷어내기*/
-	cv::Mat capture_black = black(cv::Range(top, bottom), cv::Range(left, right));
+	/*cv::Mat capture_black = black(cv::Range(top, bottom), cv::Range(left, right));
 
 	int cap_row = capture.rows;
 	int cap_col = capture.cols;
@@ -104,7 +106,7 @@ int main(int argc, char* argv[]) {
 				capture.at<cv::Vec3b>(i, j)[2] = 255;
 			}
 		}
-	}
+	}*/
 	/*배경색 걷어내기*/
 	//int width[624] = { 0 };
 	//float width_f[624] = { 0,0 };
@@ -188,8 +190,8 @@ int main(int argc, char* argv[]) {
 	//}	
 	//cout << start << endl;
 	//cout << end << endl;
-	cv::imshow("draw capture", capture);
-	cv::imshow("draw capture_black", capture_black);
+	
+	//cv::imshow("draw capture_black", capture_black);
 	/*for (int i = 0; i < row; i++) {
 		image.at<cv::Vec3b>(i, left)[0] = 255;
 		image.at<cv::Vec3b>(i, right)[0] = 255;
@@ -206,9 +208,8 @@ int main(int argc, char* argv[]) {
 		image.at<cv::Vec3b>(top, i)[2] = 255;
 		image.at<cv::Vec3b>(bottom, i)[2] = 255;
 	}*/
+	 cv::imshow("draw capture", capture);
 	cv::imshow("draw black", black);
-	image = cv::imread("C:/Users/sfsfk/Desktop/js.png", cv::IMREAD_COLOR);
-	//image = cv::imread("C:/Users/sfsfk/Desktop/test.jpg", cv::IMREAD_COLOR);
 	cv::imshow("draw line", image);	
 	cv::waitKey(0);
 	return 0;
