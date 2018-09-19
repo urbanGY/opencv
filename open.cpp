@@ -14,30 +14,73 @@ void diff(int * width, int col) {
 }
 
 int main(int argc, char* argv[]) {	
-	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/case10.jpg", cv::IMREAD_COLOR);
-	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//마스킹
-	//cv::dilate(image, image, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 2);//팽창연산
-	//cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/js.png", cv::IMREAD_COLOR);
+	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/case7.jpg", cv::IMREAD_COLOR);
 	int row = image.rows;//470 세로 427
 	int col = image.cols;//624 가로 398
-	/*흑백 전환*/
+
+	int row_start = (row / 2) - 2;
+	int col_start = (col / 2) - 2;
+	int red = 0, green = 0, blue = 0;
+	for (int i = 0; i < 5; i++) {
+		for (int j = 0; j < 5; j++) {
+			red += image.at<cv::Vec3b>(i + row_start, j + col_start)[2];
+			green += image.at<cv::Vec3b>(i + row_start, j + col_start)[1];
+			blue += image.at<cv::Vec3b>(i + row_start, j + col_start)[0];
+		}
+	}
+	red /= 25;
+	green /= 25;
+	blue /= 25;
+	cout << "rgb : " << red * 0.9 << ", " << green * 0.9 << ", " << blue * 0.9 << endl;
+	cout << "rgb : " << red * 1.5 << ", " << green * 1.5 << ", " << blue * 1.5 << endl;
+
 	cv::Mat black;
-	cv::cvtColor(image, black, CV_BGR2YCrCb);
-	/*default 0, 135, 80   255, 171, 124*/
-	/* test1 ->  0, 110, 80 앞의 값을 내릴 수 록 더 많은 영역이 하얀색에 포함된다(이 범위 안으로 들어온다) / 255, 171, 128(값을 올릴 수 록 하얀색이 넓어짐
-	팽창 연산(노이즈 캔슬링) 3회 진행
-	식별 실패 : case3(엷은 갈색이 넓게 분포), case4, case5(코와 더불어 코털 등이 식별에 방해됨, 점이 너무 작아서 노이즈 캔슬링에 치명적), case7,
-	*/
-	cv::inRange(black, cv::Scalar(0, 110, 80), cv::Scalar(255, 171, 128), black);	
-	cv::dilate(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 3);//팽창연산
-	/*자르기*/
+	cv::inRange(image, cv::Scalar((blue*0.3), (green*0.3), (red*0.3)), cv::Scalar((blue*1.3), (green*1.3), (red*1.3)), black);
+	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//마스킹
+	cv::erode(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 1);//감산연산
+	
+
+	/*가운데 rgb값 검출
+	int read = 0;
+	cout << "red" << endl;
+	for (int i = 0; i < col; i++) {
+		read = image.at<cv::Vec3b>(row / 2, i)[2];
+		cout << read<<", ";
+	}
+	cout << " " << endl;
+	cout << "green" << endl;
+	for (int i = 0; i < col; i++) {
+		read = image.at<cv::Vec3b>(row / 2, i)[1];
+		cout << read << ", ";
+	}
+	cout << " " << endl;
+	cout << "blue" << endl;
+	for (int i = 0; i < col; i++) {
+		read = image.at<cv::Vec3b>(row / 2, i)[0];
+		cout << read << ", ";
+	}*/
+	//cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/case10.jpg", cv::IMREAD_COLOR);
+	//cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//마스킹
+	////cv::dilate(image, image, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 2);//팽창연산
+	////cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/js.png", cv::IMREAD_COLOR);
+	///*흑백 전환*/
+	//cv::Mat black;
+	//cv::cvtColor(image, black, CV_BGR2YCrCb);
+	///*default 0, 135, 80   255, 171, 124*/
+	///* test1 ->  0, 110, 80 앞의 값을 내릴 수 록 더 많은 영역이 하얀색에 포함된다(이 범위 안으로 들어온다) / 255, 171, 128(값을 올릴 수 록 하얀색이 넓어짐
+	//팽창 연산(노이즈 캔슬링) 3회 진행
+	//식별 실패 : case3(엷은 갈색이 넓게 분포), case4, case5(코와 더불어 코털 등이 식별에 방해됨, 점이 너무 작아서 노이즈 캔슬링에 치명적), case7,
+	//*/
+	//cv::inRange(black, cv::Scalar(0, 110, 80), cv::Scalar(255, 171, 128), black);	
+	//cv::dilate(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 3);//팽창연산
+	///*자르기*/
 	int left = 0, right = 0, top = 0, bottom = 0;
 	int read = -1;	
 	bool flag = false;
 	for (int i = 0; i < row; i++) {
 		for (int j = 0; j < col; j++) {
 			read = black.at<uchar>(i, j);
-			if (read == 0) {
+			if (read == 255) {
 				top = i;
 				read = -1;
 				flag = true;
@@ -52,7 +95,7 @@ int main(int argc, char* argv[]) {
 	for (int i = row-1; i >= 0; i--) {
 		for (int j = 0; j < col; j++) {
 			read = black.at<uchar>(i, j);
-			if (read == 0) {
+			if (read == 255) {
 				bottom = i;
 				read = -1;
 				flag = true;
@@ -67,7 +110,7 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < col; i++) {
 		for (int j = 0; j < row; j++) {
 			read = black.at<uchar>(j, i);
-			if (read == 0) {
+			if (read == 255) {
 				left = i;
 				read = -1;
 				flag = true;
@@ -82,7 +125,7 @@ int main(int argc, char* argv[]) {
 	for (int i = col-1; i >= 0; i--) {
 		for (int j = 0; j < row; j++) {
 			read = black.at<uchar>(j, i);
-			if (read == 0) {
+			if (read == 255) {
 				right = i;
 				read = -1;
 				flag = true;
@@ -100,7 +143,10 @@ int main(int argc, char* argv[]) {
 	cv::Mat capture = image;
 	if (!(left == 0 || right == 0 || top == 0 || bottom == 0))
 		capture = image(cv::Range(top, bottom), cv::Range(left, right));
-		
+	cv::imshow("original", image);
+	cv::imshow("masking", black);
+	cv::imshow("slice", capture);
+
 	/*배경색 걷어내기*/
 	/*cv::Mat capture_black = black(cv::Range(top, bottom), cv::Range(left, right));
 
@@ -217,9 +263,10 @@ int main(int argc, char* argv[]) {
 		image.at<cv::Vec3b>(top, i)[2] = 255;
 		image.at<cv::Vec3b>(bottom, i)[2] = 255;
 	}*/
-	 cv::imshow("slice image", capture);
+
+	 /*cv::imshow("slice image", capture);
 	cv::imshow("cvt ycrcb", black);
-	cv::imshow("original image", image);	
+	cv::imshow("original image", image);*/	
 	cv::waitKey(0);
 	return 0;
 }
