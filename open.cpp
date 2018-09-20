@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdio>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -6,22 +7,32 @@
 #include <opencv2/imgproc/imgproc.hpp>
 using namespace std;
 
-void diff(int * width, int col) {
-	for (int i = 0; i < col-1; i++) {
-		width[i] = width[i + 1] - width[i];
-	}
-	width[col - 1] = 0;
-}
+cv::Mat masking(cv::Mat, int, int);//return masking image
+cv::Mat cutting(cv::Mat, cv::Mat, int, int);//return cuting image
+void histogram(cv::Mat);
 
 int main(int argc, char* argv[]) {	
-	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/case7.jpg", cv::IMREAD_COLOR);
+	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/case1.jpg", cv::IMREAD_COLOR);//원본 이미지
 	int row = image.rows;//470 세로 427
 	int col = image.cols;//624 가로 398
+	cv::Mat black = masking(image, row, col);//흑백 이미지
+	cv::Mat capture = cutting(image, black, row, col);//잘린 이미지
+	
+	histogram(capture);//색조 판단
+	cv::imshow("original", image);
+	cv::imshow("masking", black);
+	cv::imshow("slice", capture);
 
+	cv::waitKey(0);
+	return 0;
+}
+
+cv::Mat masking(cv::Mat image, const int row, const int col) {
 	int row_start = (row / 2) - 2;
 	int col_start = (col / 2) - 2;
 	int red = 0, green = 0, blue = 0;
-	for (int i = 0; i < 5; i++) {
+
+	for (int i = 0; i < 5; i++) { //중간점 주변 25 픽셀의 rgb값의 평균 계산
 		for (int j = 0; j < 5; j++) {
 			red += image.at<cv::Vec3b>(i + row_start, j + col_start)[2];
 			green += image.at<cv::Vec3b>(i + row_start, j + col_start)[1];
@@ -31,53 +42,23 @@ int main(int argc, char* argv[]) {
 	red /= 25;
 	green /= 25;
 	blue /= 25;
-	cout << "rgb : " << red * 0.9 << ", " << green * 0.9 << ", " << blue * 0.9 << endl;
-	cout << "rgb : " << red * 1.5 << ", " << green * 1.5 << ", " << blue * 1.5 << endl;
+
+	cout << "rgb : " << red * 0.3 << ", " << green * 0.3 << ", " << blue * 0.3 << endl;
+	cout << "rgb : " << red * 1.3 << ", " << green * 1.3 << ", " << blue * 1.3 << endl;
 
 	cv::Mat black;
-	cv::inRange(image, cv::Scalar((blue*0.3), (green*0.3), (red*0.3)), cv::Scalar((blue*1.3), (green*1.3), (red*1.3)), black);
-	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//마스킹
-	cv::erode(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 1);//감산연산
-	
+	cv::inRange(image, cv::Scalar((blue*0.3), (green*0.3), (red*0.3)), cv::Scalar((blue*1.3), (green*1.3), (red*1.3)), black);//평균 rgb의 상한값과 하한값 사이 마스킹
+	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//감산 연산용 마스킹
+	cv::erode(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 1);//감산연산 진행(노이즈 캔슬링)
 
-	/*가운데 rgb값 검출
-	int read = 0;
-	cout << "red" << endl;
-	for (int i = 0; i < col; i++) {
-		read = image.at<cv::Vec3b>(row / 2, i)[2];
-		cout << read<<", ";
-	}
-	cout << " " << endl;
-	cout << "green" << endl;
-	for (int i = 0; i < col; i++) {
-		read = image.at<cv::Vec3b>(row / 2, i)[1];
-		cout << read << ", ";
-	}
-	cout << " " << endl;
-	cout << "blue" << endl;
-	for (int i = 0; i < col; i++) {
-		read = image.at<cv::Vec3b>(row / 2, i)[0];
-		cout << read << ", ";
-	}*/
-	//cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/case10.jpg", cv::IMREAD_COLOR);
-	//cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//마스킹
-	////cv::dilate(image, image, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 2);//팽창연산
-	////cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/js.png", cv::IMREAD_COLOR);
-	///*흑백 전환*/
-	//cv::Mat black;
-	//cv::cvtColor(image, black, CV_BGR2YCrCb);
-	///*default 0, 135, 80   255, 171, 124*/
-	///* test1 ->  0, 110, 80 앞의 값을 내릴 수 록 더 많은 영역이 하얀색에 포함된다(이 범위 안으로 들어온다) / 255, 171, 128(값을 올릴 수 록 하얀색이 넓어짐
-	//팽창 연산(노이즈 캔슬링) 3회 진행
-	//식별 실패 : case3(엷은 갈색이 넓게 분포), case4, case5(코와 더불어 코털 등이 식별에 방해됨, 점이 너무 작아서 노이즈 캔슬링에 치명적), case7,
-	//*/
-	//cv::inRange(black, cv::Scalar(0, 110, 80), cv::Scalar(255, 171, 128), black);	
-	//cv::dilate(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 3);//팽창연산
-	///*자르기*/
+	return black;//흑백으로 마스킹된 이미지 반환
+}
+
+cv::Mat cutting(cv::Mat image, cv::Mat black, const int row, const int col) {//마스킹된 이미지를 기반으로 원본 이미지를 자름
 	int left = 0, right = 0, top = 0, bottom = 0;
-	int read = -1;	
+	int read = -1;
 	bool flag = false;
-	for (int i = 0; i < row; i++) {
+	for (int i = 0; i < row; i++) {//find top
 		for (int j = 0; j < col; j++) {
 			read = black.at<uchar>(i, j);
 			if (read == 255) {
@@ -92,7 +73,7 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 	}
-	for (int i = row-1; i >= 0; i--) {
+	for (int i = row - 1; i >= 0; i--) {//find bottom
 		for (int j = 0; j < col; j++) {
 			read = black.at<uchar>(i, j);
 			if (read == 255) {
@@ -107,7 +88,7 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 	}
-	for (int i = 0; i < col; i++) {
+	for (int i = 0; i < col; i++) {//find left
 		for (int j = 0; j < row; j++) {
 			read = black.at<uchar>(j, i);
 			if (read == 255) {
@@ -122,7 +103,7 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 	}
-	for (int i = col-1; i >= 0; i--) {
+	for (int i = col - 1; i >= 0; i--) {//find right
 		for (int j = 0; j < row; j++) {
 			read = black.at<uchar>(j, i);
 			if (read == 255) {
@@ -137,136 +118,56 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 	}
-	
 	cout << "left" << left << "right" << right << endl;
 	cout << "top" << top << "bottom" << bottom << endl;
+
 	cv::Mat capture = image;
-	if (!(left == 0 || right == 0 || top == 0 || bottom == 0))
+	if (!(left == 0 || right == 0 || top == 0 || bottom == 0))//예외 처리
 		capture = image(cv::Range(top, bottom), cv::Range(left, right));
-	cv::imshow("original", image);
-	cv::imshow("masking", black);
-	cv::imshow("slice", capture);
 
-	/*배경색 걷어내기*/
-	/*cv::Mat capture_black = black(cv::Range(top, bottom), cv::Range(left, right));
+	return capture;//잘린 이미지 리턴
+}
 
-	int cap_row = capture.rows;
-	int cap_col = capture.cols;
-	for (int i = 0; i < cap_row; i++) {
-		for (int j = 0; j < cap_col; j++) {
-			read = capture_black.at<uchar>(i, j);
-			if (read == 255) {
-				capture.at<cv::Vec3b>(i, j)[0] = 255;
-				capture.at<cv::Vec3b>(i, j)[1] = 255;
-				capture.at<cv::Vec3b>(i, j)[2] = 255;
-			}
-		}
-	}*/
-	/*배경색 걷어내기*/
-	//int width[624] = { 0 };
-	//float width_f[624] = { 0,0 };
-	//int red = 0;
-	//int green = 0;
-	//int blue = 0;
-	//for (int i = 0; i < row; i++) {
-	//	for (int j = 0; j < col; j++) {
-	//		red = image.at<cv::Vec3b>(i, j)[2];
-	//		green = image.at<cv::Vec3b>(i, j)[1];
-	//		blue = image.at<cv::Vec3b>(i, j)[0];
-	//		width[j] += (red + green + blue);
-	//	}
-	//}
-	//
-	//
-	//for (int i = 0; i < col; i++) {
-	//	width_f[i] = (float)width[i] / (3 * row);
-	//	width[i] = (int)width_f[i];
-	//}
+void histogram(cv::Mat capture) {
+	cv::Mat dst;
+	cv::Mat bgr[3];
+	cv::Mat hist; //Histogram 계산값 저장
+	int channel[] = { 0,1,2 };
+	int histSize = 255; //Histogram 가로값의 수
+	int count = 0;
+	float range[] = { 0,255.0 };
+	const float * ranges = range;
+	int hist_w = 512; int hist_h = 400;
+	int number_bins = 255;
+	int bin_w = cvRound((double)hist_w / number_bins);
+	unsigned row2 = capture.rows; unsigned col2 = capture.cols; //자른 사진의 크기 저장
 
-	//diff(width, col);
-	///*for (int i = 0; i < col; i++) {
-	//	if (i % 10 == 0) {
-	//		printf("\n");
-	//	}
-	//	printf("%3d, ", width[i]);
-	//}*/
-	//
-	////여기서 대충 계산 되었다고 치고
-	//int long_under = 0, long_over = 0;
-	//int cur_under = 0, cur_over = 0;
+	cvtColor(capture, dst, CV_HSV2BGR); //Color 변경
+	calcHist(&dst, 3, channel, cv::Mat(), hist, 1, &histSize, &ranges, true, false); //Histogram 계산
+	cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+	normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
 
-	//int start = 0, end = 0;
-	//int cur_start = 0, cur_end = 0;
-
-	//for (int i = 0; i < col; i++) {
-	//	if (width[i] < 0) {//값이 감소추세일 때			
-	//		cur_under++;
-	//		if (cur_under == 1) {
-	//			cur_start = i;
-	//		}			
-
-	//		if (cur_over > long_over) {
-	//			end = cur_end;
-	//			long_over = cur_over;
-	//		}
-	//		cur_over = 0;
-	//		cur_end = 0;
-	//	}
-	//	else if(width[i] > 0) {//증가추세일 때
-	//		if (cur_under > long_under) {//최근 측정 길이가 가장 길다면
-	//			start = cur_start;
-	//			long_under = cur_under;
-	//		}
-	//		cur_under = 0;
-	//		cur_start = 0;
-
-	//		cur_over++;
-	//		if (cur_over == 1) {
-	//			cur_end = i;
-	//		}
-	//	}
-	//	else {//0일 경우
-	//		if (cur_under > long_under) {//최근 측정 길이가 가장 길다면
-	//			start = cur_start;
-	//			long_under = cur_under;
-	//		}
-	//		cur_under = 0;
-	//		cur_start = 0;
-
-	//		if (cur_over > long_over) {
-	//			end = cur_end;
-	//			long_over = cur_over;
-	//		}
-	//		cur_over = 0;
-	//		cur_end = 0;
-	//	}
-	//	
-	//	//printf("%d, ",start);
-	//}	
-	//cout << start << endl;
-	//cout << end << endl;
-	
-	//cv::imshow("draw capture_black", capture_black);
-	/*for (int i = 0; i < row; i++) {
-		image.at<cv::Vec3b>(i, left)[0] = 255;
-		image.at<cv::Vec3b>(i, right)[0] = 255;
-		image.at<cv::Vec3b>(i, left)[1] = 255;
-		image.at<cv::Vec3b>(i, right)[1] = 255;
-		image.at<cv::Vec3b>(i, left)[2] = 255;
-		image.at<cv::Vec3b>(i, right)[2] = 255;
+	for (int i = 1; i < number_bins; i++) {	//Histogram 선 그리기
+		line(histImage, cv::Point(bin_w*(i - 1), hist_h - cvRound(hist.at<float>(i - 1))), cv::Point(bin_w*(i), hist_h - cvRound(hist.at<float>(i))), cv::Scalar(0, 255, 0), 2, 8, 0);
 	}
-	for (int i = 0; i < col; i++) {
-		image.at<cv::Vec3b>(top, i)[0] = 255;
-		image.at<cv::Vec3b>(bottom, i)[0] = 255;
-		image.at<cv::Vec3b>(top, i)[1] = 255;
-		image.at<cv::Vec3b>(bottom, i)[1] = 255;
-		image.at<cv::Vec3b>(top, i)[2] = 255;
-		image.at<cv::Vec3b>(bottom, i)[2] = 255;
-	}*/
 
-	 /*cv::imshow("slice image", capture);
-	cv::imshow("cvt ycrcb", black);
-	cv::imshow("original image", image);*/	
-	cv::waitKey(0);
-	return 0;
+	for (int i = 0; i < histSize; i++) { //색의 다양성 검출
+		printf("%d번째 %f \n", i, hist.at<float>(i));
+		if (hist.at<float>(i) > 229) {
+			count++;
+		}
+	}
+
+	printf("카운트 수 : %d\n", count);
+
+	if (count > 10) {
+		printf("다양한 색조를 보입니다.");
+	}
+	else {
+		printf("다양한 색조를 보이지 않습니다.");
+	}
+
+	cv::namedWindow("Histogram", CV_WINDOW_AUTOSIZE);
+	cv::imshow("HSV2BGR", dst);
+	cv::imshow("Histogram", histImage);
 }
