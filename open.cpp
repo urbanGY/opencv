@@ -160,7 +160,7 @@ void histogram(cv::Mat capture) {
 
 	printf("카운트 수 : %d\n", count);
 
-	if (count > 10) {
+	if (count > 15) {
 		printf("다양한 색조를 보입니다.");
 	}
 	else {
