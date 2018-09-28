@@ -8,31 +8,36 @@
 #include <opencv2/imgproc/imgproc.hpp>
 using namespace std;
 
-cv::Mat masking(cv::Mat, int, int, float, float);//return masking image
+cv::Mat masking(cv::Mat, float, float);//return masking image
+void fill(cv::Mat);
 int * find(cv::Mat);//return left,right,top,bottom
 cv::Mat cutting(cv::Mat, int *);//return cuting image
 void histogram(cv::Mat);
 
-int main(int argc, char* argv[]) {	
-	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/case4.jpg", cv::IMREAD_COLOR);//ì›ë³¸ ì´ë¯¸ì§€
-	int row = image.rows;//ì„¸ë¡œ
-	int col = image.cols;//ê°€ë¡œ
-	cv::Mat black = masking(image, row, col, 0.3, 1.3);//í‘ë°± ì´ë¯¸ì§€
-	cv::Mat rough = masking(image, row, col, 0.2, 1.5);
-	int * index = find(black);//ë¹¡ì„¸ê²Œ ì¡ì€ê±°
-	int * index_rough = find(rough);//ëŸ¬í”„í•˜ê²Œ ì¡ì€ê±°
+int main(int argc, char* argv[]) {
+	string name = "js.png";
+	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//¿øº» ÀÌ¹ÌÁö
+	cv::Mat original = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//¿øº» ÀÌ¹ÌÁö
+	int row = image.rows;//¼¼·Î
+	int col = image.cols;//°¡·Î
+
+	cv::Mat black = masking(image, 0.3, 1.3);//Èæ¹é ÀÌ¹ÌÁö
+	cv::Mat rough = masking(image, 0.2, 1.5);
+	int * index = find(black);//ºı¼¼°Ô ÀâÀº°Å
+	int * index_rough = find(rough);//·¯ÇÁÇÏ°Ô ÀâÀº°Å
 
 	cout << "*** case B ***" << endl;
 	cout << "left : " << index[0] - index_rough[0] << ", right : " << index_rough[1] - index[1] << endl;
 	cout << "top : " << index[2] - index_rough[2] << ", bottom : " << index_rough[3] - index[3] << endl;
 
-	
-	cv::Mat capture = cutting(image, index);//ì˜ë¦° ì´ë¯¸ì§€
-	
+
+	cv::Mat capture = cutting(image, index);//Àß¸° ÀÌ¹ÌÁö
+	fill(rough);
+
 	//vector<vector<cv::Point>> contours;
-	//cv::findContours(black, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-	//int cmin = 100;  // ìµœì†Œ ì™¸ê³½ì„  ê¸¸ì´
-	//int cmax = 1000; // ìµœëŒ€ ì™¸ê³½ì„  ê¸¸ì´
+	//cv::findContours(rough, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+	//int cmin = 100;  // ÃÖ¼Ò ¿Ü°û¼± ±æÀÌ
+	//int cmax = 1000; // ÃÖ´ë ¿Ü°û¼± ±æÀÌ
 	//vector<vector<cv::Point>>::const_iterator itc = contours.begin();
 	//while (itc != contours.end()) {
 	//	if (itc->size() < cmin || itc->size() > cmax)
@@ -41,8 +46,8 @@ int main(int argc, char* argv[]) {
 	//		++itc;
 	//}
 	//cv::drawContours(original, contours, -1, cv::Scalar(255, 255, 255), 2);
-	
-	histogram(capture);//ìƒ‰ì¡° íŒë‹¨
+
+	histogram(capture);//»öÁ¶ ÆÇ´Ü
 	cv::imshow("original", image);
 	cv::imshow("masking", black);
 	cv::imshow("rough", rough);
@@ -52,32 +57,93 @@ int main(int argc, char* argv[]) {
 	return 0;
 }
 
-cv::Mat masking(cv::Mat image, const int row, const int col, float low, float high) {
-	int row_start = (row / 2) - 2;
-	int col_start = (col / 2) - 2;
+cv::Mat masking(cv::Mat image, float low, float high) {
+	int row = image.rows;
+	int col = image.cols;
+	int row_start = (row / 2) - 15;
+	int col_start = (col / 2) - 15;
 	int red = 0, green = 0, blue = 0;
 
-	for (int i = 0; i < 5; i++) { //ì¤‘ê°„ì  ì£¼ë³€ 25 í”½ì…€ì˜ rgbê°’ì˜ í‰ê·  ê³„ì‚°
-		for (int j = 0; j < 5; j++) {
+	for (int i = 0; i < 31; i++) { //Áß°£Á¡ ÁÖº¯ 25 ÇÈ¼¿ÀÇ rgb°ªÀÇ Æò±Õ °è»ê
+		for (int j = 0; j < 31; j++) {
 			red += image.at<cv::Vec3b>(i + row_start, j + col_start)[2];
 			green += image.at<cv::Vec3b>(i + row_start, j + col_start)[1];
 			blue += image.at<cv::Vec3b>(i + row_start, j + col_start)[0];
 		}
 	}
-	red /= 25;
-	green /= 25;
-	blue /= 25;
+	red /= 961;
+	green /= 961;
+	blue /= 961;
 
 	cout << "rgb : " << red * low << ", " << green * low << ", " << blue * low << endl;
 	cout << "rgb : " << red * high << ", " << green * high << ", " << blue * high << endl;
 
 	cv::Mat black;
-	cv::inRange(image, cv::Scalar((blue*low), (green*low), (red*low)), cv::Scalar((blue*high), (green*high), (red*high)), black);//í‰ê·  rgbì˜ ìƒí•œê°’ê³¼ í•˜í•œê°’ ì‚¬ì´ ë§ˆìŠ¤í‚¹
-	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//ê°ì‚° ì—°ì‚°ìš© ë§ˆìŠ¤í‚¹
-	cv::erode(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 1);//ê°ì‚°ì—°ì‚° ì§„í–‰(ë…¸ì´ì¦ˆ ìº”ìŠ¬ë§)
+	cv::inRange(image, cv::Scalar((blue*low), (green*low), (red*low)), cv::Scalar((blue*high), (green*high), (red*high)), black);//Æò±Õ rgbÀÇ »óÇÑ°ª°ú ÇÏÇÑ°ª »çÀÌ ¸¶½ºÅ·
+	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//°¨»ê ¿¬»ê¿ë ¸¶½ºÅ·
+	cv::erode(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 1);//°¨»ê¿¬»ê ÁøÇà(³ëÀÌÁî Äµ½½¸µ)
 
-	return black;//í‘ë°±ìœ¼ë¡œ ë§ˆìŠ¤í‚¹ëœ ì´ë¯¸ì§€ ë°˜í™˜
+	return black;//Èæ¹éÀ¸·Î ¸¶½ºÅ·µÈ ÀÌ¹ÌÁö ¹İÈ¯
 }
+
+void fill(cv::Mat black) {
+	int row = black.rows;
+	int col = black.cols;
+	int read = -1;	
+	int start = 0;
+	int end = 0;
+
+	for (int i = 0; i < row; i++) {		
+		int x = col - 1;
+		while (x >= 0) {
+			read = black.at<uchar>(i, x);
+			if (read == 255) {
+				end = x;
+				break;
+			}
+			x--;
+		}
+		x = 0;
+		while (x < col) {			
+			read = black.at<uchar>(i, x);
+			if (read == 255) {
+				start = x;
+				break;
+			}
+			x++;
+		}
+		for(int j = start ; j < end ; j++)
+			black.at<uchar>(i, j) = 255;
+		start = 0;
+		end = 0;
+	}
+
+	for (int i = 0; i < col; i++) {
+		int x = row - 1;
+		while (x >= 0) {
+			read = black.at<uchar>(x, i);
+			if (read == 255) {
+				end = x;
+				break;
+			}
+			x--;
+		}
+		x = 0;
+		while (x < row) {
+			read = black.at<uchar>(x, i);
+			if (read == 255) {
+				start = x;
+				break;
+			}
+			x++;
+		}
+		for (int j = start; j < end; j++)
+			black.at<uchar>(j, i) = 255;
+		start = 0;
+		end = 0;
+	}
+}
+
 int * find(cv::Mat black) {
 	int row = black.rows;
 	int col = black.cols;
@@ -153,56 +219,56 @@ int * find(cv::Mat black) {
 	index[3] = bottom;
 	return index;
 }
-cv::Mat cutting(cv::Mat image, int * index) {//ë§ˆìŠ¤í‚¹ëœ ì´ë¯¸ì§€ë¥¼ ê¸°ë°˜ìœ¼ë¡œ ì›ë³¸ ì´ë¯¸ì§€ë¥¼ ìë¦„
+cv::Mat cutting(cv::Mat image, int * index) {//¸¶½ºÅ·µÈ ÀÌ¹ÌÁö¸¦ ±â¹İÀ¸·Î ¿øº» ÀÌ¹ÌÁö¸¦ ÀÚ¸§
 	int left = index[0];
 	int right = index[1];
 	int top = index[2];
 	int bottom = index[3];
 
 	cv::Mat capture = image;
-	if (!(left == 0 || right == 0 || top == 0 || bottom == 0))//ì˜ˆì™¸ ì²˜ë¦¬
+	if (!(left == 0 || right == 0 || top == 0 || bottom == 0))//¿¹¿Ü Ã³¸®
 		capture = image(cv::Range(top, bottom), cv::Range(left, right));
 
-	return capture;//ì˜ë¦° ì´ë¯¸ì§€ ë¦¬í„´
+	return capture;//Àß¸° ÀÌ¹ÌÁö ¸®ÅÏ
 }
 
 void histogram(cv::Mat capture) {
 	cv::Mat dst;
 	cv::Mat bgr[3];
-	cv::Mat hist; //Histogram ê³„ì‚°ê°’ ì €ì¥
+	cv::Mat hist; //Histogram °è»ê°ª ÀúÀå
 	int channel[] = { 0,1,2 };
-	int histSize = 255; //Histogram ê°€ë¡œê°’ì˜ ìˆ˜
+	int histSize = 255; //Histogram °¡·Î°ªÀÇ ¼ö
 	int count = 0;
 	float range[] = { 0,255.0 };
 	const float * ranges = range;
 	int hist_w = 512; int hist_h = 400;
 	int number_bins = 255;
 	int bin_w = cvRound((double)hist_w / number_bins);
-	unsigned row2 = capture.rows; unsigned col2 = capture.cols; //ìë¥¸ ì‚¬ì§„ì˜ í¬ê¸° ì €ì¥
+	unsigned row2 = capture.rows; unsigned col2 = capture.cols; //ÀÚ¸¥ »çÁøÀÇ Å©±â ÀúÀå
 
-	cvtColor(capture, dst, CV_HSV2BGR); //Color ë³€ê²½
-	calcHist(&dst, 3, channel, cv::Mat(), hist, 1, &histSize, &ranges, true, false); //Histogram ê³„ì‚°
+	cvtColor(capture, dst, CV_HSV2BGR); //Color º¯°æ
+	calcHist(&dst, 3, channel, cv::Mat(), hist, 1, &histSize, &ranges, true, false); //Histogram °è»ê
 	cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
 	normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
 
-	for (int i = 1; i < number_bins; i++) {	//Histogram ì„  ê·¸ë¦¬ê¸°
+	for (int i = 1; i < number_bins; i++) {	//Histogram ¼± ±×¸®±â
 		line(histImage, cv::Point(bin_w*(i - 1), hist_h - cvRound(hist.at<float>(i - 1))), cv::Point(bin_w*(i), hist_h - cvRound(hist.at<float>(i))), cv::Scalar(0, 255, 0), 2, 8, 0);
 	}
 
-	for (int i = 0; i < histSize; i++) { //ìƒ‰ì˜ ë‹¤ì–‘ì„± ê²€ì¶œ
-		//printf("%dë²ˆì§¸ %f \n", i, hist.at<float>(i));
+	for (int i = 0; i < histSize; i++) { //»öÀÇ ´Ù¾ç¼º °ËÃâ
+		//printf("%d¹øÂ° %f \n", i, hist.at<float>(i));
 		if (hist.at<float>(i) > 229) {
 			count++;
 		}
 	}
 
-	printf("ì¹´ìš´íŠ¸ ìˆ˜ : %d\n", count);
+	printf("Ä«¿îÆ® ¼ö : %d\n", count);
 
 	if (count > 10) {
-		printf("ë‹¤ì–‘í•œ ìƒ‰ì¡°ë¥¼ ë³´ì…ë‹ˆë‹¤.");
+		printf("´Ù¾çÇÑ »öÁ¶¸¦ º¸ÀÔ´Ï´Ù.");
 	}
 	else {
-		printf("ë‹¤ì–‘í•œ ìƒ‰ì¡°ë¥¼ ë³´ì´ì§€ ì•ŠìŠµë‹ˆë‹¤.");
+		printf("´Ù¾çÇÑ »öÁ¶¸¦ º¸ÀÌÁö ¾Ê½À´Ï´Ù.");
 	}
 
 	cv::namedWindow("Histogram", CV_WINDOW_AUTOSIZE);
