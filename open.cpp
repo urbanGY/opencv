@@ -8,7 +8,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 using namespace std;
 
-cv::Mat masking(cv::Mat, float, float);//return masking image
+cv::Mat masking(cv::Mat);//return masking image
 void fill(cv::Mat);
 int * find(cv::Mat);//return left,right,top,bottom
 cv::Mat cutting(cv::Mat, int *);//return cuting image
@@ -16,77 +16,33 @@ void histogram(cv::Mat);
 float symmetry(cv::Mat);// return degree of symmetry
 
 int main(int argc, char* argv[]) {
-	string name = "case10.jpg";
+	string name = "case14.jpg";
 	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	cv::Mat original = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
+	cv::imshow("img", image);
 	int row = image.rows;//세로
 	int col = image.cols;//가로
-
-	cv::Mat black = masking(image, 0.3, 1.3);//흑백 이미지
-	cv::Mat rough = masking(image, 0.2, 1.5);
-	int * index = find(black);//빡세게 잡은거
-	int * index_rough = find(rough);//러프하게 잡은거
-
-	cout << "*** case B ***" << endl;
-	cout << "left : " << index[0] - index_rough[0] << ", right : " << index_rough[1] - index[1] << endl;
-	cout << "top : " << index[2] - index_rough[2] << ", bottom : " << index_rough[3] - index[3] << endl;
-
-	cv::Mat cut = cutting(black, index);
-	cv::imshow("before", cut);
-	cout << "symmetry : " << symmetry(cut) << endl;
-	//cv::Mat capture = cutting(image, index);//잘린 이미지
-	//fill(rough);
-
-	//histogram(capture);//색조 판단
-	//cv::imshow("original", image);
-	//cv::imshow("masking", black);
-	//cv::imshow("rough", rough);
-	//cv::imshow("slice", capture);
-
+	cv::Mat black = masking(image);
+	cv::imshow("black", black);
+	int * index = find(black);
+	cv::Mat capture = cutting(black, index);
+	original = cutting(original, index);
+	fill(capture);
+	
+	cout << "symmetry : " << symmetry(capture) << endl;
+	cv::imshow("origi", original);
+	histogram(original);
 	cv::waitKey(0);
 	return 0;
 }
-	
-	//contours example
-	//vector<vector<cv::Point>> contours;
-	//cv::findContours(rough, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-	//int cmin = 100;  // 최소 외곽선 길이
-	//int cmax = 1000; // 최대 외곽선 길이
-	//vector<vector<cv::Point>>::const_iterator itc = contours.begin();
-	//while (itc != contours.end()) {
-	//	if (itc->size() < cmin || itc->size() > cmax)
-	//		itc = contours.erase(itc);
-	//	else
-	//		++itc;
-	//}
-	//cv::drawContours(original, contours, -1, cv::Scalar(255, 255, 255), 2);
 
-cv::Mat masking(cv::Mat image, float low, float high) {
-	int row = image.rows;
-	int col = image.cols;
-	int row_start = (row / 2) - 15;
-	int col_start = (col / 2) - 15;
-	int red = 0, green = 0, blue = 0;
 
-	for (int i = 0; i < 31; i++) { //중간점 주변 25 픽셀의 rgb값의 평균 계산
-		for (int j = 0; j < 31; j++) {
-			red += image.at<cv::Vec3b>(i + row_start, j + col_start)[2];
-			green += image.at<cv::Vec3b>(i + row_start, j + col_start)[1];
-			blue += image.at<cv::Vec3b>(i + row_start, j + col_start)[0];
-		}
-	}
-	red /= 961;
-	green /= 961;
-	blue /= 961;
-
-	cout << "rgb : " << red * low << ", " << green * low << ", " << blue * low << endl;
-	cout << "rgb : " << red * high << ", " << green * high << ", " << blue * high << endl;
-
+cv::Mat masking(cv::Mat image) {
 	cv::Mat black;
-	cv::inRange(image, cv::Scalar((blue*low), (green*low), (red*low)), cv::Scalar((blue*high), (green*high), (red*high)), black);//평균 rgb의 상한값과 하한값 사이 마스킹
-	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));//감산 연산용 마스킹
-	cv::erode(black, black, /*cv::Mat(3, 3, CV_8U, cv::Scalar(1))*/mask, cv::Point(-1, -1), 1);//감산연산 진행(노이즈 캔슬링)
-
+	cv::Mat gray_image;
+	medianBlur(image, image, 7);
+	cv::cvtColor(image, gray_image, CV_BGR2GRAY); // 흑백영상으로 변환
+	cv::adaptiveThreshold(gray_image, black, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 401, 60);
 	return black;//흑백으로 마스킹된 이미지 반환
 }
 
@@ -101,7 +57,7 @@ void fill(cv::Mat black) {
 		int x = col - 1;
 		while (x >= 0) {
 			read = black.at<uchar>(i, x);
-			if (read == 255) {
+			if (read == 0) {
 				end = x;
 				break;
 			}
@@ -110,14 +66,14 @@ void fill(cv::Mat black) {
 		x = 0;
 		while (x < col) {			
 			read = black.at<uchar>(i, x);
-			if (read == 255) {
+			if (read == 0) {
 				start = x;
 				break;
 			}
 			x++;
 		}
 		for(int j = start ; j < end ; j++)
-			black.at<uchar>(i, j) = 255;
+			black.at<uchar>(i, j) = 0;
 		start = 0;
 		end = 0;
 	}
@@ -126,7 +82,7 @@ void fill(cv::Mat black) {
 		int x = row - 1;
 		while (x >= 0) {
 			read = black.at<uchar>(x, i);
-			if (read == 255) {
+			if (read == 0) {
 				end = x;
 				break;
 			}
@@ -135,14 +91,14 @@ void fill(cv::Mat black) {
 		x = 0;
 		while (x < row) {
 			read = black.at<uchar>(x, i);
-			if (read == 255) {
+			if (read == 0) {
 				start = x;
 				break;
 			}
 			x++;
 		}
 		for (int j = start; j < end; j++)
-			black.at<uchar>(j, i) = 255;
+			black.at<uchar>(j, i) = 0;
 		start = 0;
 		end = 0;
 	}
@@ -157,7 +113,7 @@ int * find(cv::Mat black) {
 	for (int i = 0; i < row; i++) {//find top
 		for (int j = 0; j < col; j++) {
 			read = black.at<uchar>(i, j);
-			if (read == 255) {
+			if (read == 0) {
 				top = i;
 				read = -1;
 				flag = true;
@@ -172,7 +128,7 @@ int * find(cv::Mat black) {
 	for (int i = row - 1; i >= 0; i--) {//find bottom
 		for (int j = 0; j < col; j++) {
 			read = black.at<uchar>(i, j);
-			if (read == 255) {
+			if (read == 0) {
 				bottom = i;
 				read = -1;
 				flag = true;
@@ -187,7 +143,7 @@ int * find(cv::Mat black) {
 	for (int i = 0; i < col; i++) {//find left
 		for (int j = 0; j < row; j++) {
 			read = black.at<uchar>(j, i);
-			if (read == 255) {
+			if (read == 0) {
 				left = i;
 				read = -1;
 				flag = true;
@@ -202,7 +158,7 @@ int * find(cv::Mat black) {
 	for (int i = col - 1; i >= 0; i--) {//find right
 		for (int j = 0; j < row; j++) {
 			read = black.at<uchar>(j, i);
-			if (read == 255) {
+			if (read == 0) {
 				right = i;
 				read = -1;
 				flag = true;
@@ -222,7 +178,7 @@ int * find(cv::Mat black) {
 	index[2] = top;
 	index[3] = bottom;
 	return index;
-}
+}//884281
 cv::Mat cutting(cv::Mat image, int * index) {//마스킹된 이미지를 기반으로 원본 이미지를 자름
 	int left = index[0];
 	int right = index[1];
@@ -266,7 +222,7 @@ float symmetry(cv::Mat image) {
 	return (float)((matrix - count) / matrix);
 }
 
-void histogram(cv::Mat capture) {
+void histogram(cv::Mat capture) { // 30정도
 	cv::Mat dst;
 	cv::Mat bgr[3];
 	cv::Mat hist; //Histogram 계산값 저장
