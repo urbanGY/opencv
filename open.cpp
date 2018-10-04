@@ -13,9 +13,10 @@ void fill(cv::Mat);
 int * find(cv::Mat);//return left,right,top,bottom
 cv::Mat cutting(cv::Mat, int *);//return cuting image
 void histogram(cv::Mat);
+float symmetry(cv::Mat);// return degree of symmetry
 
 int main(int argc, char* argv[]) {
-	string name = "js.png";
+	string name = "case10.jpg";
 	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	cv::Mat original = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	int row = image.rows;//세로
@@ -30,32 +31,35 @@ int main(int argc, char* argv[]) {
 	cout << "left : " << index[0] - index_rough[0] << ", right : " << index_rough[1] - index[1] << endl;
 	cout << "top : " << index[2] - index_rough[2] << ", bottom : " << index_rough[3] - index[3] << endl;
 
+	cv::Mat cut = cutting(black, index);
+	cv::imshow("before", cut);
+	cout << "symmetry : " << symmetry(cut) << endl;
+	//cv::Mat capture = cutting(image, index);//잘린 이미지
+	//fill(rough);
 
-	cv::Mat capture = cutting(image, index);//잘린 이미지
-	fill(rough);
-
-	vector<vector<cv::Point>> contours;
-	cv::findContours(rough, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-	int cmin = 100;  // 최소 외곽선 길이
-	int cmax = 1000; // 최대 외곽선 길이
-	vector<vector<cv::Point>>::const_iterator itc = contours.begin();
-	while (itc != contours.end()) {
-		if (itc->size() < cmin || itc->size() > cmax)
-			itc = contours.erase(itc);
-		else
-			++itc;
-	}
-	cv::drawContours(original, contours, -1, cv::Scalar(255, 255, 255), 2);
-
-	histogram(capture);//색조 판단
-	cv::imshow("original", image);
-	cv::imshow("masking", black);
-	cv::imshow("rough", rough);
-	cv::imshow("slice", capture);
+	//histogram(capture);//색조 판단
+	//cv::imshow("original", image);
+	//cv::imshow("masking", black);
+	//cv::imshow("rough", rough);
+	//cv::imshow("slice", capture);
 
 	cv::waitKey(0);
 	return 0;
 }
+	
+	//contours example
+	//vector<vector<cv::Point>> contours;
+	//cv::findContours(rough, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+	//int cmin = 100;  // 최소 외곽선 길이
+	//int cmax = 1000; // 최대 외곽선 길이
+	//vector<vector<cv::Point>>::const_iterator itc = contours.begin();
+	//while (itc != contours.end()) {
+	//	if (itc->size() < cmin || itc->size() > cmax)
+	//		itc = contours.erase(itc);
+	//	else
+	//		++itc;
+	//}
+	//cv::drawContours(original, contours, -1, cv::Scalar(255, 255, 255), 2);
 
 cv::Mat masking(cv::Mat image, float low, float high) {
 	int row = image.rows;
@@ -230,6 +234,36 @@ cv::Mat cutting(cv::Mat image, int * index) {//마스킹된 이미지를 기반�
 		capture = image(cv::Range(top, bottom), cv::Range(left, right));
 
 	return capture;//잘린 이미지 리턴
+}
+
+float symmetry(cv::Mat image) {
+	int row = image.rows;
+	int col = image.cols;
+	int end_top = 0, start_bottom = row / 2;
+	
+	if (row % 2 == 0) // even
+		end_top = row / 2;
+	else //odd
+		end_top = (row / 2) + 1; // row가 짝수든 홀수든 균등하게 보정
+	
+	cv::Mat top = image(cv::Range(0, end_top), cv::Range(0, col));
+	cv::Mat bottom = image(cv::Range(start_bottom, row), cv::Range(0, col));
+	cv::flip(bottom, bottom, -1);
+	int count = 0;
+	int read_top = -1, read_bottom = -1;
+	for (int i = 0; i < end_top; i++) {
+		for (int j = 0; j < col; j++) {
+			read_top = top.at<uchar>(i, j);
+			read_bottom = bottom.at<uchar>(i, j);
+			if (read_top != read_bottom) {
+				count++;
+			}
+		}
+	}
+	cv::imshow("top", top);
+	cv::imshow("bottom", bottom);
+	float matrix = end_top * col;
+	return (float)((matrix - count) / matrix);
 }
 
 void histogram(cv::Mat capture) {
