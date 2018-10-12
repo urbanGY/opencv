@@ -8,42 +8,73 @@
 #include <opencv2/imgproc/imgproc.hpp>
 using namespace std;
 
-cv::Mat masking(cv::Mat);//return masking image
+cv::Mat masking(cv::Mat, int);//return masking image
+int boundary(int *, int *);
 void fill(cv::Mat);
 int * find(cv::Mat);//return left,right,top,bottom
 cv::Mat cutting(cv::Mat, int *);//return cuting image
-void histogram(cv::Mat);
+int histogram(cv::Mat);
 float symmetry(cv::Mat);// return degree of symmetry
 
 int main(int argc, char* argv[]) {
-	string name = "case14.jpg";
+	string name = "mole/test10.jpg";
 	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	cv::Mat original = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	cv::imshow("img", image);
 	int row = image.rows;//세로
 	int col = image.cols;//가로
-	cv::Mat black = masking(image);
-	cv::imshow("black", black);
+	cv::Mat black = masking(image,60);
+	cv::Mat rough = masking(image, 50);
+	
 	int * index = find(black);
+	int * index2 = find(rough);
+
+	int resultB = boundary(index, index2);//return result B
+
 	cv::Mat capture = cutting(black, index);
 	original = cutting(original, index);
 	fill(capture);
 	
-	cout << "symmetry : " << symmetry(capture) << endl;
+	int resultA = (int)symmetry(capture);//return result A
 	cv::imshow("origi", original);
-	histogram(original);
+	int resultC = histogram(original);//return result C
+
+	cout << "*********************" << endl;
+	cout << "result A : " << resultA << endl;
+	cout << "result B : " << resultB << endl;
+	cout << "result C : " << resultC << endl;
+	cout << "*********************" << endl;
 	cv::waitKey(0);
 	return 0;
 }
 
 
-cv::Mat masking(cv::Mat image) {
+cv::Mat masking(cv::Mat image, int degree) {//60 50
 	cv::Mat black;
 	cv::Mat gray_image;
 	medianBlur(image, image, 7);
 	cv::cvtColor(image, gray_image, CV_BGR2GRAY); // 흑백영상으로 변환
-	cv::adaptiveThreshold(gray_image, black, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 401, 60);
+	cv::adaptiveThreshold(gray_image, black, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 401, degree);
+	if(degree == 60)
+		cv::imshow("black", black);
+	else 
+		cv::imshow("rough", black);
 	return black;//흑백으로 마스킹된 이미지 반환
+}
+
+int boundary(int * index1, int * index2) {
+	int size1, size2;
+	size1 = (index1[1] - index1[0])*(index1[3] - index1[2]);
+	size2 = (index2[1] - index2[0])*(index2[3] - index2[2]);
+	cout << "left" << index1[0] << "right" << index1[1] << "top" << index1[2] << "bottom" << index1[3] << "\n";
+	cout << "left" << index2[0] << "right" << index2[1] << "top" << index2[2] << "bottom" << index2[3] << "\n";
+
+	cout << "경계차이 비율 : " << (float)size2 / size1 * 100 << "\n";
+	if (((float)size2 / size1 * 100) > 100 && ((float)size2 / size1 * 100) < 200) {
+		cout << "경계선이 모호합니다" << "\n";
+		return 1;
+	}
+	return 0;
 }
 
 void fill(cv::Mat black) {
@@ -219,10 +250,10 @@ float symmetry(cv::Mat image) {
 	cv::imshow("top", top);
 	cv::imshow("bottom", bottom);
 	float matrix = end_top * col;
-	return (float)((matrix - count) / matrix);
+	return (float)((matrix - count) / matrix)*100;
 }
 
-void histogram(cv::Mat capture) { // 30정도
+int histogram(cv::Mat capture) { // 30정도
 	cv::Mat dst;
 	cv::Mat bgr[3];
 	cv::Mat hist; //Histogram 계산값 저장
@@ -254,14 +285,15 @@ void histogram(cv::Mat capture) { // 30정도
 
 	printf("카운트 수 : %d\n", count);
 
-	if (count > 50) {
-		printf("다양한 색조를 보입니다.");
+	if (count > 30) {
+		printf("다양한 색조를 보입니다.\n");
 	}
 	else {
-		printf("다양한 색조를 보이지 않습니다.");
+		printf("다양한 색조를 보이지 않습니다.\n");
 	}
 
 	cv::namedWindow("Histogram", CV_WINDOW_AUTOSIZE);
 	cv::imshow("HSV2BGR", dst);
 	cv::imshow("Histogram", histImage);
+	return count;
 }
