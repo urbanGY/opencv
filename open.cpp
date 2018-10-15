@@ -8,57 +8,75 @@
 #include <opencv2/imgproc/imgproc.hpp>
 using namespace std;
 
-cv::Mat masking(cv::Mat, int);//return masking image
+cv::Mat masking(cv::Mat, int, int);//return masking image
 int boundary(int *, int *);
 void fill(cv::Mat);
 int * find(cv::Mat);//return left,right,top,bottom
 cv::Mat cutting(cv::Mat, int *);//return cuting image
-int histogram(cv::Mat);
+float histogram(cv::Mat);
 float symmetry(cv::Mat);// return degree of symmetry
 
 int main(int argc, char* argv[]) {
-	string name = "mole/test10.jpg";
+	string name = "mole/test6.jpg";
 	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	cv::Mat original = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
+	cv::Mat black;
+	cv::Mat rough;
 	cv::imshow("img", image);
 	int row = image.rows;//세로
 	int col = image.cols;//가로
-	cv::Mat black = masking(image,60);
-	cv::Mat rough = masking(image, 50);
-	
-	int * index = find(black);
-	int * index2 = find(rough);
+	int * index;
+	int * index2;
+	int resultA = -1, resultB = -1, resultC = -1;
+	int cloudy = 30;
+	while (true) {
+		black = masking(image, cloudy, cloudy);
+		index = find(black);
+		int sum = 0;
+		for (int i = 0; i < 4; i++)
+			sum += index[i];
+		if (sum == 0) {//못잡았다는 뜻
+			cloudy -= 10;
+		}
+		else {
+			break;
+		}
+	}	
+	rough = masking(image, cloudy - 5, cloudy);	
+	index2 = find(rough);
 
-	int resultB = boundary(index, index2);//return result B
+	resultB = boundary(index, index2)*100;//return result B 1이면 암 0이면 점
 
 	cv::Mat capture = cutting(black, index);
-	original = cutting(original, index);
 	fill(capture);
-	
-	int resultA = (int)symmetry(capture);//return result A
-	cv::imshow("origi", original);
-	int resultC = histogram(original);//return result C
+	resultA = (int)symmetry(capture);//return result A
 
+	original = cutting(original, index);
+	resultC = (int)histogram(original);//return result C
 	cout << "*********************" << endl;
-	cout << "result A : " << resultA << endl;
-	cout << "result B : " << resultB << endl;
-	cout << "result C : " << resultC << endl;
+	cout << "cloud : " << cloudy << endl;
+	cout << "result A : " << resultA << "%" << endl;//100% 기준으로 대칭성
+	cout << "result B : " << resultB << "%" << endl;//1이면 암
+	cout << "result C : " << resultC << "%" << endl;//count/40*100
 	cout << "*********************" << endl;
 	cv::waitKey(0);
 	return 0;
 }
 
 
-cv::Mat masking(cv::Mat image, int degree) {//60 50
+cv::Mat masking(cv::Mat image, int degree, int cloudy) {//60 50
 	cv::Mat black;
 	cv::Mat gray_image;
 	medianBlur(image, image, 7);
 	cv::cvtColor(image, gray_image, CV_BGR2GRAY); // 흑백영상으로 변환
 	cv::adaptiveThreshold(gray_image, black, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 401, degree);
-	if(degree == 60)
-		cv::imshow("black", black);
-	else 
-		cv::imshow("rough", black);
+	if (degree == cloudy) {
+		cv::imshow("Tight masking", black);
+	}
+	else {
+		cv::imshow("Rough masking", black);
+	}
+	
 	return black;//흑백으로 마스킹된 이미지 반환
 }
 
@@ -66,12 +84,10 @@ int boundary(int * index1, int * index2) {
 	int size1, size2;
 	size1 = (index1[1] - index1[0])*(index1[3] - index1[2]);
 	size2 = (index2[1] - index2[0])*(index2[3] - index2[2]);
-	cout << "left" << index1[0] << "right" << index1[1] << "top" << index1[2] << "bottom" << index1[3] << "\n";
-	cout << "left" << index2[0] << "right" << index2[1] << "top" << index2[2] << "bottom" << index2[3] << "\n";
-
-	cout << "경계차이 비율 : " << (float)size2 / size1 * 100 << "\n";
+	
+	//cout << "경계차이 비율 : " << (float)size2 / size1 * 100 << "\n";
 	if (((float)size2 / size1 * 100) > 100 && ((float)size2 / size1 * 100) < 200) {
-		cout << "경계선이 모호합니다" << "\n";
+		//cout << "경계선이 모호합니다" << "\n";
 		return 1;
 	}
 	return 0;
@@ -201,8 +217,8 @@ int * find(cv::Mat black) {
 			break;
 		}
 	}
-	cout << "left" << left << "right" << right << endl;
-	cout << "top" << top << "bottom" << bottom << endl;
+	//cout << "left" << left << "right" << right << endl;
+	//cout << "top" << top << "bottom" << bottom << endl;
 	int * index = (int *)malloc(sizeof(int) * 4);
 	index[0] = left;
 	index[1] = right;
@@ -253,7 +269,7 @@ float symmetry(cv::Mat image) {
 	return (float)((matrix - count) / matrix)*100;
 }
 
-int histogram(cv::Mat capture) { // 30정도
+float histogram(cv::Mat capture) { // 30정도
 	cv::Mat dst;
 	cv::Mat bgr[3];
 	cv::Mat hist; //Histogram 계산값 저장
@@ -286,14 +302,14 @@ int histogram(cv::Mat capture) { // 30정도
 	printf("카운트 수 : %d\n", count);
 
 	if (count > 30) {
-		printf("다양한 색조를 보입니다.\n");
+		//printf("다양한 색조를 보입니다.\n");
 	}
 	else {
-		printf("다양한 색조를 보이지 않습니다.\n");
+		//printf("다양한 색조를 보이지 않습니다.\n");
 	}
 
 	cv::namedWindow("Histogram", CV_WINDOW_AUTOSIZE);
 	cv::imshow("HSV2BGR", dst);
 	cv::imshow("Histogram", histImage);
-	return count;
+	return ((float)count/40.0)*100;
 }
