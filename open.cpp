@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdio>
 #include <stdlib.h>
+#include <math.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -14,11 +15,12 @@ void fill(cv::Mat);
 int * find(cv::Mat);//return left,right,top,bottom
 cv::Mat cutting(cv::Mat, int *);//return cuting image
 float histogram(cv::Mat);
-float symmetry(cv::Mat);// return degree of symmetry
+float symmetry(cv::Mat, int *);// return degree of symmetry
 
 int main(int argc, char* argv[]) {
-	string name = "mole/test6.jpg";
+	string name = "mole/test10.jpg";
 	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
+	cv::Mat roug = image;
 	cv::Mat original = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	cv::Mat black;
 	cv::Mat rough;
@@ -27,8 +29,9 @@ int main(int argc, char* argv[]) {
 	int col = image.cols;//가로
 	int * index;
 	int * index2;
-	int resultA = -1, resultB = -1, resultC = -1;
-	int cloudy = 30;
+	int resultA = -1, resultC = -1;
+	int resultB = 0;
+	int cloudy = 60;
 	while (true) {
 		black = masking(image, cloudy, cloudy);
 		index = find(black);
@@ -42,22 +45,26 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 	}	
-	rough = masking(image, cloudy - 5, cloudy);	
+	rough = masking(image, cloudy - 20, cloudy);	
 	index2 = find(rough);
-
 	resultB = boundary(index, index2)*100;//return result B 1이면 암 0이면 점
 
-	cv::Mat capture = cutting(black, index);
-	fill(capture);
-	resultA = (int)symmetry(capture);//return result A
-
+	fill(black);
+	resultA = (int)symmetry(black, index);//return result A
+	resultA = 100 - resultA;
 	original = cutting(original, index);
+	roug= cutting(roug, index2);
+	cv::imshow("roug", roug);
+	cv::imshow("original", original);
 	resultC = (int)histogram(original);//return result C
+
+	int total = (resultA + resultB + resultC) / 3;
 	cout << "*********************" << endl;
 	cout << "cloud : " << cloudy << endl;
 	cout << "result A : " << resultA << "%" << endl;//100% 기준으로 대칭성
 	cout << "result B : " << resultB << "%" << endl;//1이면 암
 	cout << "result C : " << resultC << "%" << endl;//count/40*100
+	cout << "total : " << total << "%" << endl;
 	cout << "*********************" << endl;
 	cv::waitKey(0);
 	return 0;
@@ -80,14 +87,14 @@ cv::Mat masking(cv::Mat image, int degree, int cloudy) {//60 50
 	return black;//흑백으로 마스킹된 이미지 반환
 }
 
-int boundary(int * index1, int * index2) {
+int boundary(int * index1, int * index2) { // case 5 6 7 안됨
 	int size1, size2;
 	size1 = (index1[1] - index1[0])*(index1[3] - index1[2]);
 	size2 = (index2[1] - index2[0])*(index2[3] - index2[2]);
 	
-	//cout << "경계차이 비율 : " << (float)size2 / size1 * 100 << "\n";
-	if (((float)size2 / size1 * 100) > 100 && ((float)size2 / size1 * 100) < 200) {
-		//cout << "경계선이 모호합니다" << "\n";
+	cout << "경계차이 비율 : " << (float)size2 / size1 * 100 << "\n";
+	if (((float)size2 / size1 * 100) > 100 && ((float)size2 / size1 * 100) < 300) {
+		cout << "경계선이 모호합니다" << "\n";
 		return 1;
 	}
 	return 0;
@@ -239,34 +246,50 @@ cv::Mat cutting(cv::Mat image, int * index) {//마스킹된 이미지를 기반�
 	return capture;//잘린 이미지 리턴
 }
 
-float symmetry(cv::Mat image) {
+float symmetry(cv::Mat image, int * index) {//날것의 마스킹
 	int row = image.rows;
 	int col = image.cols;
-	int end_top = 0, start_bottom = row / 2;
-	
-	if (row % 2 == 0) // even
-		end_top = row / 2;
-	else //odd
-		end_top = (row / 2) + 1; // row가 짝수든 홀수든 균등하게 보정
-	
-	cv::Mat top = image(cv::Range(0, end_top), cv::Range(0, col));
-	cv::Mat bottom = image(cv::Range(start_bottom, row), cv::Range(0, col));
-	cv::flip(bottom, bottom, -1);
+	int read = -1;
+	int read2 = -1;
 	int count = 0;
-	int read_top = -1, read_bottom = -1;
-	for (int i = 0; i < end_top; i++) {
+
+	for (int i = 0; i < row; i++) {
 		for (int j = 0; j < col; j++) {
-			read_top = top.at<uchar>(i, j);
-			read_bottom = bottom.at<uchar>(i, j);
-			if (read_top != read_bottom) {
+			read = image.at<uchar>(i, j);
+			if (read == 0) {
 				count++;
+			}
+		} 
+	}
+	double temp = sqrt((float)count / 3.141592);
+	int r = (int)temp;
+
+	int x = (index[1] - index[0]) / 2 + index[0];
+	int y = (index[3] - index[2]) / 2 + index[2];
+	cv::Mat background(row, col, CV_8UC3, cv::Scalar(255, 255, 255));
+	cv::circle(background, cv::Point(x,y), r+(count/500)+1, cv::Scalar(0,0,0),-1);
+	cv::cvtColor(background, background, CV_BGR2GRAY);
+	
+	int sub = 0;
+	for (int i = 0; i < row; i++) {
+		for (int j = 0; j < col; j++) {
+			read = image.at<uchar>(i, j);
+			read2 = background.at<uchar>(i, j);
+			int temp = read - read2;
+			if ((temp > 200) || (temp < -200)) {
+				sub++;
 			}
 		}
 	}
-	cv::imshow("top", top);
-	cv::imshow("bottom", bottom);
-	float matrix = end_top * col;
-	return (float)((matrix - count) / matrix)*100;
+	cout << "count : " << count << endl;
+	cout << "sub : " << sub << endl;
+	cv::imshow("circle", background);
+	sub = count - sub;
+	/*cout << "count : " << count << endl;
+	cout << "sub : " << sub << endl;
+	cout << "answer : " << (float)sub / (float)count << endl;*/
+
+	return ((float)sub / (float)count) * 100;
 }
 
 float histogram(cv::Mat capture) { // 30정도
@@ -307,9 +330,24 @@ float histogram(cv::Mat capture) { // 30정도
 	else {
 		//printf("다양한 색조를 보이지 않습니다.\n");
 	}
-
 	cv::namedWindow("Histogram", CV_WINDOW_AUTOSIZE);
 	cv::imshow("HSV2BGR", dst);
 	cv::imshow("Histogram", histImage);
-	return ((float)count/40.0)*100;
+	/*double p1 = 0.000002069;
+	double p2 = -0.0002921;
+	double p3 = 0.01324;
+	double p4 = -0.1994;
+	double p5 = 2.271;
+	double p6 = - 1.959;	*/
+	double p1 = 0.000000577;
+	double p2 = -0.00006435;
+	double p3 = 0.00124;
+	double p4 = 0.04832;
+	double p5 = 0.7406;
+	double p6 = -0.8064;
+	double answer = p1 * pow(count, 5.0) + p2 * pow(count, 4.0) + p3 * pow(count, 3.0) + p4 * pow(count, 2.0) + p5 * pow(count, 1.0) + p6;
+	if (answer >= 100) {
+		answer = 100;
+	}
+	return answer;
 }
