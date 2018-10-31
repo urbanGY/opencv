@@ -15,48 +15,46 @@ void fill(cv::Mat);
 int * find(cv::Mat);//return left,right,top,bottom
 cv::Mat cutting(cv::Mat, int *);//return cuting image
 float histogram(cv::Mat);
-float symmetry(cv::Mat, int *);// return degree of symmetry
+float asymmetry(cv::Mat, int *);// return degree of symmetry
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {//7 ban
 	string name = "mole/test10.jpg";
 	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
-	cv::Mat roug = image;
 	cv::Mat original = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
-	cv::Mat black;
-	cv::Mat rough;
+	cv::Mat black;//기존 마스킹
+	cv::Mat rough;//보다 낮은 값으로 마스킹
 	cv::imshow("img", image);
 	int row = image.rows;//세로
 	int col = image.cols;//가로
-	int * index;
-	int * index2;
-	int resultA = -1, resultC = -1;
-	int resultB = 0;
-	int cloudy = 60;
-	while (true) {
-		black = masking(image, cloudy, cloudy);
-		index = find(black);
+	int * index;//black의 점의 좌 우 상 하 위치
+	int * index2;//rough의 점의 좌 우 상 하 위치
+	int resultA = -1, resultB = 0, resultC = -1;//판단 하려는 A B C의 %를 저장하려는 변수
+	int cloudy = 60;//마스킹 하려는 범위를 결정하는 변수
+	while (true) {//사진에서 점을 마스킹할 때 까지 반복
+		black = masking(image, cloudy, cloudy);//점을 마스킹
+		index = find(black);//마스킹된 점의 좌 우 상 하 위치 저장
 		int sum = 0;
 		for (int i = 0; i < 4; i++)
 			sum += index[i];
-		if (sum == 0) {//못잡았다는 뜻
+		if (sum == 0) {//만약 좌표의 합이 0이면 마스킹이 안된 것임으로 cloudy를 10 낮춰서 다시 마스킹을 시도한다.
 			cloudy -= 10;
 		}
 		else {
 			break;
 		}
 	}	
-	rough = masking(image, cloudy - 20, cloudy);	
-	index2 = find(rough);
-	resultB = boundary(index, index2)*100;//return result B 1이면 암 0이면 점
+	fill(black);//마스킹된 점의내부에 빈 부분을 매워서 보정한다.
 
-	fill(black);
-	resultA = (int)symmetry(black, index);//return result A
-	resultA = 100 - resultA;
-	original = cutting(original, index);
-	roug= cutting(roug, index2);
-	cv::imshow("roug", roug);
-	cv::imshow("original", original);
-	resultC = (int)histogram(original);//return result C
+	rough = masking(image, cloudy - 20, cloudy);//black보다 낮은 값으로 마스킹	
+	index2 = find(rough);//마스킹된 점의 좌 우 상 하 위치 저장
+	resultB = boundary(index, index2)*100;//두 좌표값의 차이로 B를 판단
+
+	
+	resultA = (int)asymmetry(black, index);//마스킹된 사진과 그 좌표로 A를 판단
+
+	original = cutting(original, index);//사진을 마스킹된 사진으로 알게된 좌표로 잘라준다. 즉, 점만 남김
+	resultC = (int)histogram(original);//잘린 점 사진을 이용해 C를 판단
+	//cv::imshow("original", original);	
 
 	int total = (resultA + resultB + resultC) / 3;
 	cout << "*********************" << endl;
@@ -90,7 +88,7 @@ cv::Mat masking(cv::Mat image, int degree, int cloudy) {//60 50
 int boundary(int * index1, int * index2) { // case 5 6 7 안됨
 	int size1, size2;
 	size1 = (index1[1] - index1[0])*(index1[3] - index1[2]);
-	size2 = (index2[1] - index2[0])*(index2[3] - index2[2]);
+	size2 = (index2[1] - index2[0])*(index2[3] - index2[2]); 
 	
 	cout << "경계차이 비율 : " << (float)size2 / size1 * 100 << "\n";
 	if (((float)size2 / size1 * 100) > 100 && ((float)size2 / size1 * 100) < 300) {
@@ -246,7 +244,7 @@ cv::Mat cutting(cv::Mat image, int * index) {//마스킹된 이미지를 기반�
 	return capture;//잘린 이미지 리턴
 }
 
-float symmetry(cv::Mat image, int * index) {//날것의 마스킹
+float asymmetry(cv::Mat image, int * index) {//날것의 마스킹
 	int row = image.rows;
 	int col = image.cols;
 	int read = -1;
@@ -288,8 +286,11 @@ float symmetry(cv::Mat image, int * index) {//날것의 마스킹
 	/*cout << "count : " << count << endl;
 	cout << "sub : " << sub << endl;
 	cout << "answer : " << (float)sub / (float)count << endl;*/
-
-	return ((float)sub / (float)count) * 100;
+	float result = 100 - (((float)sub / (float)count) * 100);
+	if(result >= 100)
+		return 100;
+	else 
+		return result;
 }
 
 float histogram(cv::Mat capture) { // 30정도
