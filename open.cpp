@@ -18,18 +18,22 @@ float histogram(cv::Mat);
 float asymmetry(cv::Mat, int *);// return degree of symmetry
 
 int main(int argc, char* argv[]) {//7 ban
-	string name = "mole/test10.jpg";
+	string name = "case0.jpg";
 	cv::Mat image = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	cv::Mat original = cv::imread("C:/Users/sfsfk/Desktop/" + name, cv::IMREAD_COLOR);//원본 이미지
 	cv::Mat black;//기존 마스킹
 	cv::Mat rough;//보다 낮은 값으로 마스킹
-	cv::imshow("img", image);
+	
 	int row = image.rows;//세로
 	int col = image.cols;//가로
+
+	/*image = image(cv::Range(row / 3, row / 3 * 2), cv::Range(col / 3, col / 3 * 2));
+	original = original(cv::Range(row / 3, row / 3 * 2), cv::Range(col / 3, col / 3 * 2));*/
+	cv::imshow("img", image);
 	int * index;//black의 점의 좌 우 상 하 위치
 	int * index2;//rough의 점의 좌 우 상 하 위치
 	int resultA = -1, resultB = 0, resultC = -1;//판단 하려는 A B C의 %를 저장하려는 변수
-	int cloudy = 60;//마스킹 하려는 범위를 결정하는 변수
+	int cloudy = 55;//마스킹 하려는 범위를 결정하는 변수
 	while (true) {//사진에서 점을 마스킹할 때 까지 반복
 		black = masking(image, cloudy, cloudy);//점을 마스킹
 		index = find(black);//마스킹된 점의 좌 우 상 하 위치 저장
@@ -45,7 +49,7 @@ int main(int argc, char* argv[]) {//7 ban
 	}	
 	fill(black);//마스킹된 점의내부에 빈 부분을 매워서 보정한다.
 
-	rough = masking(image, cloudy - 20, cloudy);//black보다 낮은 값으로 마스킹	
+	rough = masking(image, cloudy - 30, cloudy);//black보다 낮은 값으로 마스킹	
 	index2 = find(rough);//마스킹된 점의 좌 우 상 하 위치 저장
 	resultB = boundary(index, index2)*100;//두 좌표값의 차이로 B를 판단
 
@@ -91,7 +95,7 @@ int boundary(int * index1, int * index2) { // case 5 6 7 안됨
 	size2 = (index2[1] - index2[0])*(index2[3] - index2[2]); 
 	
 	cout << "경계차이 비율 : " << (float)size2 / size1 * 100 << "\n";
-	if (((float)size2 / size1 * 100) > 100 && ((float)size2 / size1 * 100) < 300) {
+	if (((float)size2 / size1 * 100) > 100 && ((float)size2 / size1 * 100) < 200) {
 		cout << "경계선이 모호합니다" << "\n";
 		return 1;
 	}
@@ -265,7 +269,7 @@ float asymmetry(cv::Mat image, int * index) {//날것의 마스킹
 	int x = (index[1] - index[0]) / 2 + index[0];
 	int y = (index[3] - index[2]) / 2 + index[2];
 	cv::Mat background(row, col, CV_8UC3, cv::Scalar(255, 255, 255));
-	cv::circle(background, cv::Point(x,y), r+(count/500)+1, cv::Scalar(0,0,0),-1);
+	cv::circle(background, cv::Point(x,y), r+(count/600)+1, cv::Scalar(0,0,0),-1);
 	cv::cvtColor(background, background, CV_BGR2GRAY);
 	
 	int sub = 0;
